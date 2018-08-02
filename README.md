@@ -62,7 +62,7 @@ Make changes in providers.tf accordingly (region, optionally profile)
 ```
 cd eks-project
 
-terrafomr init
+terraform init
 
 terraform apply
 ```
