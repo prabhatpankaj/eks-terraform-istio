@@ -60,7 +60,7 @@ Make changes in providers.tf accordingly (region, optionally profile)
 
 ## Terraform apply
 ```
-cd eks-project
+cd eks-terraform-istio  # git cloned project
 
 terraform init
 
@@ -75,7 +75,7 @@ terraform output kubeconfig > ~/.kube/config
 
 echo "export KUBECONFIG=$KUBECONFIG:$HOME/.kube/config" | tee -a ~/.bashrc
 
-
+source ~/.bashrc
 ```
 
 ## Test your configuration.
@@ -109,6 +109,54 @@ kubectl describe services helloworld
 
 ```
 
+## Deploy the Kubernetes dashboard to your cluster:
+
+```
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/dashboard/master/src/deploy/recommended/kubernetes-dashboard.yaml
+
+```
+
+## Deploy heapster to enable container cluster monitoring and performance analysis on your cluster:
+```
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/heapster/master/deploy/kube-config/influxdb/heapster.yaml
+
+```
+
+## Deploy the influxdb backend for heapster to your cluster
+
+```
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/heapster/master/deploy/kube-config/influxdb/influxdb.yaml
+
+```
+## Create the heapster cluster role binding for the dashboard:
+```
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/heapster/master/deploy/kube-config/rbac/heapster-rbac.yaml
+```
+
+## Create an eks-admin Service Account
+```
+kubectl apply -f eks-admin-service-account.yaml
+```
+
+## Apply the cluster role binding to your cluster
+```
+kubectl apply -f eks-admin-cluster-role-binding.yaml
+
+```
+
+## Retrieve an authentication token for the eks-admin service account. Copy the <authentication_token> value from the output. You use this token to connect to the dashboard.
+
+```
+kubectl -n kube-system describe secret $(kubectl -n kube-system get secret | grep eks-admin | awk '{print $1}')
+
+```
+* Start the kubectl proxy.
+
+```
+kubectl proxy --address='0.0.0.0' --accept-hosts '.*' --port=8082
+
+```
+
 ## Install networking using WeaveWorks
 
 ```
@@ -123,9 +171,7 @@ kubectl get all --namespace=kube-system
 ```
 ## install helm
 ```
-curl -Lo /tmp/helm-linux-amd64.tar.gz https://kubernetes-helm.storage.googleapis.com/helm-v2.9.0-linux-amd64.tar.gz
-tar -xvf /tmp/helm-linux-amd64.tar.gz -C /tmp/
-chmod +x  /tmp/linux-amd64/helm && sudo mv /tmp/linux-amd64/helm /usr/local/bin/
+curl https://raw.githubusercontent.com/kubernetes/helm/master/scripts/get | bash
 
 ```
 ## install istio 
@@ -148,11 +194,23 @@ source ~/.bashrc
 kubectl apply -f install/kubernetes/helm/istio/templates/crds.yaml -n istio-system
 
 ```
-## Install Istio with default mutual TLS authentication
-* To Install Istio and enforce mutual TLS authentication by default, use the yaml istio-demo-auth.yaml
+## Install with Helm and Tiller via helm install
+* If a service account has not already been installed for Tiller, install one:
 
 ```
-kubectl apply -f install/kubernetes/istio-demo-auth.yaml
+kubectl create -f install/kubernetes/helm/helm-service-account.yaml
+
+```
+* Install Tiller on your cluster with the service account:
+
+```
+helm init --service-account tiller
+
+```
+* Install Istio:
+
+```
+helm install install/kubernetes/helm/istio --name istio --namespace istio-system --set global.configValidation=false
 
 ```
 ## Verify istio (wait untill STATUS become Running/Completed )
@@ -188,7 +246,6 @@ Secures service to service communication over TLS. Providing a key management sy
 
 * When deploying an application that will be extended via Istio, the Kubernetes YAML definitions are extended via kube-inject. This will configure the services proxy sidecar (Envoy), Mixers, Certificates and Init Containers.
 ```
-cd istio-1.0.0
 
 kubectl apply -f <(istioctl kube-inject -f samples/bookinfo/platform/kube/bookinfo.yaml)
 
@@ -197,6 +254,30 @@ kubectl apply -f samples/bookinfo/networking/bookinfo-gateway.yaml
 kubectl get pods
 ```
 
+* loadbalencer ip  http://sfdbjbjbfjgkjsdhfsdhfdf.us-east-1.elb.amazonaws.com , change it as per ip address
+
+```
+
+http://sfdbjbjbfjgkjsdhfsdhfdf.us-east-1.elb.amazonaws.com/productpage
+
+
+```
+
+## Visualise Cluster using Weave Scope
+
+* visit aws load balencer security group and open port 4040 , open to world
+```
+kubectl create -f 'https://cloud.weave.works/launch/k8s/weavescope.yaml'
+
+kubectl get pods -n weave
+
+pod=$(kubectl get pod -n weave --selector=name=weave-scope-app -o jsonpath={.items..metadata.name})
+
+kubectl expose pod $pod -n weave --type=LoadBalancer --port=4040 --target-port=4040
+```
+* loadbalencer ip  http://hfkdsfhdkjhfsdfhskdgkdf.us-east-1.elb.amazonaws.com , change it as per ip address
+
+* View Scope on port 4040 at http://hfkdsfhdkjhfsdfhskdgkdf.us-east-1.elb.amazonaws.com:4000
 ## Destroy
 Make sure all the resources created by Kubernetes are removed (LoadBalancers, Security groups), and issue
 
