@@ -60,7 +60,7 @@ Make changes in providers.tf accordingly (region, optionally profile)
 
 ## Terraform apply
 ```
-cd eks-terraform-istio  # git cloned project
+cd eks-terraform-istio
 
 terraform init
 
@@ -157,12 +157,6 @@ kubectl proxy --address='0.0.0.0' --accept-hosts '.*' --port=8082
 
 ```
 
-## Install networking using WeaveWorks
-
-```
-kubectl apply -f "https://cloud.weave.works/k8s/net?k8s-version=$(kubectl version | base64 | tr -d '\n')"
-
-```
 ## get cluster ( wait till STATUS will change from pending to running)
 
 ```
@@ -177,6 +171,8 @@ curl https://raw.githubusercontent.com/kubernetes/helm/master/scripts/get | bash
 ## install istio 
 
 ```
+cd $HOME
+
 curl -L https://git.io/getLatestIstio | ISTIO_VERSION=1.0.0 sh 
 
 cd istio-1.0.0
@@ -186,14 +182,7 @@ echo "export PATH="$PATH:$PWD/bin"" | tee -a ~/.bashrc
 source ~/.bashrc
 
 ```
-## Configure Istio CRD
-* Istio has extended Kubernetes via Custom Resource Definitions (CRD). Deploy the extensions by applying crds.yaml.
 
-```
-
-kubectl apply -f install/kubernetes/helm/istio/templates/crds.yaml -n istio-system
-
-```
 ## Install with Helm and Tiller via helm install
 * If a service account has not already been installed for Tiller, install one:
 
@@ -207,6 +196,15 @@ kubectl create -f install/kubernetes/helm/helm-service-account.yaml
 helm init --service-account tiller
 
 ```
+
+* Istio has extended Kubernetes via Custom Resource Definitions (CRD). Deploy the extensions by applying crds.yaml.
+
+```
+
+kubectl apply -f install/kubernetes/helm/istio/templates/crds.yaml -n istio-system
+
+```
+
 * Install Istio:
 
 ```
@@ -245,27 +243,41 @@ Secures service to service communication over TLS. Providing a key management sy
 ## install sample project (https://github.com/istio/istio/tree/master/samples/bookinfo)
 
 * When deploying an application that will be extended via Istio, the Kubernetes YAML definitions are extended via kube-inject. This will configure the services proxy sidecar (Envoy), Mixers, Certificates and Init Containers.
+
 ```
 
 kubectl apply -f <(istioctl kube-inject -f samples/bookinfo/platform/kube/bookinfo.yaml)
 
+kubectl get pods
+
+```
+
+* wait untill STATUS become running
+
+```
 kubectl apply -f samples/bookinfo/networking/bookinfo-gateway.yaml
 
-kubectl get pods
+```
+
+* get ingress load balencer ip 
+
+```
+kubectl describe svc istio-ingressgateway -n istio-system
+
 ```
 
 * loadbalencer ip  http://sfdbjbjbfjgkjsdhfsdhfdf.us-east-1.elb.amazonaws.com , change it as per ip address
 
 ```
-
 http://sfdbjbjbfjgkjsdhfsdhfdf.us-east-1.elb.amazonaws.com/productpage
-
 
 ```
 
 ## Visualise Cluster using Weave Scope
 
 * visit aws load balencer security group and open port 4040 , open to world
+
+
 ```
 kubectl create -f 'https://cloud.weave.works/launch/k8s/weavescope.yaml'
 
@@ -274,10 +286,21 @@ kubectl get pods -n weave
 pod=$(kubectl get pod -n weave --selector=name=weave-scope-app -o jsonpath={.items..metadata.name})
 
 kubectl expose pod $pod -n weave --type=LoadBalancer --port=4040 --target-port=4040
+
 ```
+
 * loadbalencer ip  http://hfkdsfhdkjhfsdfhskdgkdf.us-east-1.elb.amazonaws.com , change it as per ip address
 
 * View Scope on port 4040 at http://hfkdsfhdkjhfsdfhskdgkdf.us-east-1.elb.amazonaws.com:4000
+
+## update stack if somthing problem
+
+```
+helm upgrade --wait \
+             --set global.configValidation=false \
+             istio \
+             install/kubernetes/helm/istio
+```
 ## Destroy
 Make sure all the resources created by Kubernetes are removed (LoadBalancers, Security groups), and issue
 
